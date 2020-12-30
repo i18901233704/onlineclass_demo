@@ -10,6 +10,7 @@ var(
 
 	roomMsgChan = make(chan []byte,10000 * 10)
 	InnerPubAddr string = "inproc://"
+	roomManager *RoomManager
 )
 
 
@@ -30,6 +31,12 @@ type RoomManager struct{
 	roomlist map[string]*Room
 }
 
+func init(){
+	roomManager = &RoomManager{roomlist: make(map[string]*Room)}
+
+	go roomManager.RecvFromChanLoop()
+}
+
 func (m *RoomManager) RecvFromChanLoop(){
 	publisher, err := zmq.NewSocket(zmq.PUB)
 	defer publisher.Close()
@@ -44,6 +51,8 @@ func (m *RoomManager) RecvFromChanLoop(){
 		publisher.SendMessage(msg)
 	}
 
+	os.Exit(1)
+
 }
 
 func (m *RoomManager) CreateRoom (roomid string){
@@ -56,8 +65,10 @@ func (m *RoomManager) CreateRoom (roomid string){
 	room := &Room{Roomid: roomid, userlist: make(map[string]*Client)}
 	m.roomlist[roomid] =room
 	m.lock.Unlock()
-
-	go room.SendAndRecvLoop()
+	
+	c := make(chan struct{})
+	go room.SendAndRecvLoop(c)
+	<- c
 }
 
 func (m *RoomManager) DeleteRoom(roomid string) {
@@ -126,12 +137,14 @@ func (r *Room) ConnectRouter(){
 	r.poller.Add(r.dealer, zmq.POLLIN)
 }
 
-func (r *Room) SendAndRecvLoop(){
+func (r *Room) SendAndRecvLoop(c chan struct{}){
 
 	r.poller := zmq.NewPoller()
 	r.ConnectPub()
 	r.ConnectRouter()
 	r.ConnectInPub()
+
+	c <- struct{}{}
 
 	for {
         sockets, _ := poller.Poll(-1)

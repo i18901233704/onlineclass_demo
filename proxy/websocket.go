@@ -63,7 +63,7 @@ func (c *Client) LeaveRoom(){
 	}
 }
 
-func (c *Client) SendToRouter(msg byte[]){
+func (c *Client) SendToRoomMsgChan(msg byte[]){
 
 	fmt.Println("recv message from client and send to  roomMsgChan",string(msg))
 	select {
@@ -94,11 +94,12 @@ func (c *Client) ReadMessage() {
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 		msg := map[string]string{}
 		json.UnMarshal(&msg,message)
+		roomid := msg["roomid"]
 		if msg["cmd"] == "enter" {
-			
+			roomManager.CreateRoom(roomid)
 		}
 
-		c.SendToRouter(message)
+		c.SendToRoomMsgChan(message)
 	}
 }
 
