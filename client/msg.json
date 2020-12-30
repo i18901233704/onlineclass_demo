@@ -1,0 +1,71 @@
+# enter_room req
+{
+	"cmd":"enter",
+	"roomid":"51talk",
+	"userid":"123",
+	"token":"123",
+	"cli_timestamp":"1609298968000_1"
+}
+# enter_room res
+{
+	"cmd":"enter",
+	"roomid":"51talk",
+	"userid":"123",
+	"cli_timestamp":"1609298968000_1",
+	"status":"ok",
+	"version":"1",
+	"srv_timestamp":"1609298968000_100",
+}
+# enter_room brodcast
+{
+	"cmd":"enter",
+	"roomid":"51talk",
+	"userid":"123",
+	"cli_timestamp":"1609298968000_1",
+	"status":"ok",
+	"version":"1",
+	"srv_timestamp":"1609298968000_100",
+}
+
+
+# chat req
+{
+	"cmd":"chat",
+	"roomid":"51talk",
+	"userid":"123",
+	"cli_timestamp":"1609298968000_1",
+	"msg":"hello world"
+}
+# chat res
+{
+	"cmd":"chat",
+	"roomid":"51talk",
+	"userid":"123",
+	"cli_timestamp":"1609298968000_1",
+	"status":"ok",
+	"version":"2",
+	"srv_timestamp":"1609298968000_100",
+}
+# chat brodcast
+{
+	"cmd":"chat",
+	"roomid":"51talk",
+	"userid":"123",
+	"cli_timestamp":"1609298968000_1",
+	"status":"ok",
+	"version":"2",
+	"srv_timestamp":"1609298968000_100",
+	"msg":"hello world"
+}
+
+
+#leave brodcast
+{
+	"cmd":"leave",
+	"roomid":"51talk",
+	"userid":"123",
+	"cli_timestamp":"1609298968000_1",
+	"status":"ok",
+	"version":"3",
+	"srv_timestamp":"1609298968000_100",
+}
