@@ -8,7 +8,7 @@ import(
 
 var(
 
-	roomMsgChan = make(chan []byte,10000 * 10)
+	roomMsgChan []byte = make(chan []byte,10000 * 10)
 	InnerPubAddr string = "inproc://"
 	roomManager *RoomManager
 )
@@ -175,13 +175,43 @@ func (r *Room) SendAndRecvLoop(c chan struct{}){
 
 
 func (r *Room) ProcessInSub(msg []string){
+	if len(msg) <2 {
+		return
+	}
 
+	fmt.Println("ProcessInSub recv:",msg[1])
+
+	r.dealer.SendMessage(msg[1])
 }
 
 func (r *Room) ProcessSub(msg []string){
 	
+	if len(msg) <2 {
+		return
+	}
+
+	fmt.Println("ProcessSub recv:",msg[1])
+	for c := range r.userlist {
+		if c != nil{
+			c.SendToClient(msg[1])
+		}
+	}
+
 }
 
 func (r *Room) ProcessDealer(msg []string){
 	
+	if len(msg) ==0 {
+		return
+	}
+
+	m:= map[string]string{}
+	json.UnMarshal(&m, []byte(msg[0])
+
+	userid := m["userid"]
+
+	c ,ok := r.userlist[userid]
+	if ok && c != nil{
+		c.SendToClient(msg[0])
+	}
 }
