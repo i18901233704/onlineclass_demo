@@ -1,12 +1,11 @@
-package worker
+package main
 
 import (
 	"fmt"
-	"encoding/json"
 	zmq "github.com/pebbe/zmq4"
 )
 
-func ProcessDealer(msg []string) ([]string, err error){
+func ProcessDealer(msg []string) (rsp []string, err error){
 
 	fmt.Println("worker recv",msg[0])
 	return msg,nil
@@ -17,8 +16,8 @@ func main(){
 	dealer.Connect("tcp://127.0.0.1:8082")
 	for{
 		dealer.SendMessage("fetch")
-		msg, err := dealer.RecvMessage(0)
-		rsp ,err := ProcessDealer(msg)
+		msg, _:= dealer.RecvMessage(0)
+		rsp ,_:= ProcessDealer(msg)
 		dealer.SendMessage(rsp)
 
 	}

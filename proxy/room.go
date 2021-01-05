@@ -1,14 +1,18 @@
-package proxy
+package main
 
 import(
 	zmq "github.com/pebbe/zmq4"
 	"sync"
+	"fmt"
+	"time"
+	"os"
+	"encoding/json"
 )
 
 
 var(
 
-	roomMsgChan []byte = make(chan []byte,10000 * 10)
+	roomMsgChan chan []byte
 	InnerPubAddr string = "inproc://"
 	roomManager *RoomManager
 )
@@ -32,6 +36,7 @@ type RoomManager struct{
 }
 
 func init(){
+	roomMsgChan  = make(chan []byte,10000 * 10)
 	roomManager = &RoomManager{roomlist: make(map[string]*Room)}
 
 	go roomManager.RecvFromChanLoop()
@@ -94,13 +99,13 @@ func (r *Room) AddUser(userid string, c *Client) {
 
 func (r * Room) Destroy(){
 	r.lock.Lock()
-	ulist := []*Client
-	for u ,c := range r.userlist{
+	ulist := []*Client{}
+	for _ ,c := range r.userlist{
 		ulist= append(ulist,c)
 	}
 	r.lock.Unlock()
 
-	for u := range ulist{
+	for _,u := range ulist{
 		u.Destroy()
 	}
 }
@@ -118,28 +123,28 @@ func (r * Room) DelUser(userid string){
 }
 
 func (r *Room) ConnectInPub(){
-	r.insubscriber, _ := zmq.NewSocket(zmq.SUB)
+	r.insubscriber, _ = zmq.NewSocket(zmq.SUB)
 	r.insubscriber.Connect(InnerPubAddr)
 	r.insubscriber.SetSubscribe(r.Roomid)
 	r.poller.Add(r.insubscriber, zmq.POLLIN)
 }
 
 func (r *Room) ConnectPub(){
-	r.subscriber, _ := zmq.NewSocket(zmq.SUB)
+	r.subscriber, _ = zmq.NewSocket(zmq.SUB)
 	r.subscriber.Connect("tcp://127.0.0.1:8082")
 	r.subscriber.SetSubscribe(r.Roomid)
 	r.poller.Add(r.subscriber, zmq.POLLIN)
 }
 
 func (r *Room) ConnectRouter(){
-	r.dealer, _ := zmq.NewSocket(zmq.SUB)
+	r.dealer, _ = zmq.NewSocket(zmq.SUB)
 	r.dealer.Connect("tcp://127.0.0.1:8081")
 	r.poller.Add(r.dealer, zmq.POLLIN)
 }
 
 func (r *Room) SendAndRecvLoop(c chan struct{}){
 
-	r.poller := zmq.NewPoller()
+	r.poller = zmq.NewPoller()
 	r.ConnectPub()
 	r.ConnectRouter()
 	r.ConnectInPub()
@@ -147,7 +152,7 @@ func (r *Room) SendAndRecvLoop(c chan struct{}){
 	c <- struct{}{}
 
 	for {
-        sockets, _ := poller.Poll(-1)
+        sockets, _ := r.poller.Poll(-1)
         for _, socket := range sockets {
             switch s := socket.Socket; s {
             case r.insubscriber:
@@ -160,7 +165,6 @@ func (r *Room) SendAndRecvLoop(c chan struct{}){
                 if err != nil{
                 	r.ProcessSub(msg)
                 }
-            }
 
             case r.dealer:
                 msg, err := s.RecvMessage(0)
@@ -168,9 +172,9 @@ func (r *Room) SendAndRecvLoop(c chan struct{}){
                 	r.ProcessDealer(msg)
                 }
             
-        }
-    }
-
+        	}
+    	}
+	}
 }
 
 
@@ -191,9 +195,9 @@ func (r *Room) ProcessSub(msg []string){
 	}
 
 	fmt.Println("ProcessSub recv:",msg[1])
-	for c := range r.userlist {
+	for _, c := range r.userlist {
 		if c != nil{
-			c.SendToClient(msg[1])
+			c.SendToClient([]byte(msg[1]))
 		}
 	}
 
@@ -206,12 +210,12 @@ func (r *Room) ProcessDealer(msg []string){
 	}
 
 	m:= map[string]string{}
-	json.UnMarshal(&m, []byte(msg[0])
+	json.Unmarshal([]byte(msg[0]),&m)
 
-	userid := m["userid"]
+	userid ,_:= m["userid"]
 
 	c ,ok := r.userlist[userid]
 	if ok && c != nil{
-		c.SendToClient(msg[0])
+		c.SendToClient([]byte(msg[0]))
 	}
 }

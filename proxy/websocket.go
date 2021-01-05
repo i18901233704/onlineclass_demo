@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package proxy
+package main
 
 import (
 	"bytes"
@@ -52,7 +52,7 @@ func (c *Client) LeaveRoom(){
 	msg["cmd"] = "leave"
 	msg["roomid"] = c.Roomid
 	msg["userid"] = c.Userid
-	msg["cli_timestamp"] = fmt.Sprintf("%v-%v"time.Now().UnixNano() / 1e6,1)
+	msg["cli_timestamp"] = fmt.Sprintf("%v-%v",time.Now().UnixNano() / 1e6,1)
 	data,_ := json.Marshal(msg)
 	select {
 		case roomMsgChan <- data :
@@ -63,7 +63,7 @@ func (c *Client) LeaveRoom(){
 	}
 }
 
-func (c *Client) SendToRoomMsgChan(msg byte[]){
+func (c *Client) SendToRoomMsgChan(msg []byte){
 
 	fmt.Println("recv message from client and send to  roomMsgChan",string(msg))
 	select {
@@ -74,9 +74,15 @@ func (c *Client) SendToRoomMsgChan(msg byte[]){
 	}
 }
 
+func (c *Client) SelfKickoff(){
+}
+
+func (c *Client) Destroy(){
+}
+
 func (c *Client) ReadMessage() {
 	defer func() {
-		c.Conn.Close()
+		c.conn.Close()
 		close(c.send)
 		c.LeaveRoom()
 	}()
@@ -93,7 +99,7 @@ func (c *Client) ReadMessage() {
 
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 		msg := map[string]string{}
-		json.UnMarshal(&msg,message)
+		json.Unmarshal(message,&msg)
 		roomid := msg["roomid"]
 		if msg["cmd"] == "enter" {
 			roomManager.CreateRoom(roomid)
@@ -139,7 +145,7 @@ func (c *Client) WriteMessage() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func ServeWs(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
