@@ -51,9 +51,11 @@ func ProcessFront(msg []string){
 	if len(msg) <2{
 		return
 	}
+	fmt.Println("front recv:",msg)
 	//identity := msg[0]
 	select{
 		case c <- []byte(msg[1]):
+			fmt.Println("send to chan ok")
 		default :
 			fmt.Println("c is  full")
 	}
@@ -66,18 +68,22 @@ func ProcessBackend(msg []string){
 		return
 	}
 
+	//fmt.Println("recv backend msg:",msg)
 	identity := msg[0]
-	if msg[1] == "Fetch"{
+	if msg[1] == "fetch"{
 		select {
 			case m ,_ := <-c:
 				brouter.SendMessage(identity, string(m))
+				fmt.Println("worker pull msg",identity,string(m))
 			default:
-				fmt.Println("fetch but no new msg")
+				brouter.SendMessage(identity, "empty")
+				//fmt.Println("fetch but no new msg")
 		}
 	}else {
 		m := map[string]string{}
 		json.Unmarshal([]byte(msg[1]),&m)
 		roomid := m["roomid"]
+		fmt.Println("publish to roomid",roomid,string(msg[1]))
 		publisher.SendMessage(roomid, string(msg[1]))
 
 	}

@@ -42,18 +42,32 @@ func init(){
 	go roomManager.RecvFromChanLoop()
 }
 
+func (m *RoomManager) AddUerToRoom(roomid ,userid string, c *Client){
+	m.lock.Lock()
+	r ,ok := m.roomlist[roomid]
+	m.lock.Unlock()
+	if ok  && r !=nil{
+		r.AddUser(userid,c)
+	}
+}
+
 func (m *RoomManager) RecvFromChanLoop(){
 	publisher, err := zmq.NewSocket(zmq.PUB)
 	defer publisher.Close()
-	InnerPubAddr := fmt.Sprintf("%v%v",InnerPubAddr,time.Now().Format("2006-01-02:15:04:05"))
+	InnerPubAddr = fmt.Sprintf("%v%v",InnerPubAddr,time.Now().Format("2006-01-02:15:04:05"))
+	fmt.Println("pub addr",InnerPubAddr)
 	err = publisher.Bind(InnerPubAddr)
 	if err != nil{
 		fmt.Println("publisher bind:",err)
 		os.Exit(1)
 	}
-
+	
 	for msg := range roomMsgChan {
-		publisher.SendMessage(msg)
+		fmt.Println("RecvFromChanLoop", string(msg))
+		m := map[string]string{}
+		json.Unmarshal(msg,&m)
+		roomid := m["roomid"]
+		publisher.SendMessage(roomid,msg)
 	}
 
 	os.Exit(1)
@@ -64,6 +78,7 @@ func (m *RoomManager) CreateRoom (roomid string){
 	m.lock.Lock()
 	_, ok := m.roomlist[roomid]
 	if ok {
+		m.lock.Unlock()
 		return
 	}
 	 
@@ -125,25 +140,28 @@ func (r * Room) DelUser(userid string){
 func (r *Room) ConnectInPub(){
 	r.insubscriber, _ = zmq.NewSocket(zmq.SUB)
 	r.insubscriber.Connect(InnerPubAddr)
+	fmt.Println("sub:",InnerPubAddr, r.Roomid)
 	r.insubscriber.SetSubscribe(r.Roomid)
 	r.poller.Add(r.insubscriber, zmq.POLLIN)
 }
 
 func (r *Room) ConnectPub(){
 	r.subscriber, _ = zmq.NewSocket(zmq.SUB)
-	r.subscriber.Connect("tcp://127.0.0.1:8082")
+	r.subscriber.Connect("tcp://127.0.0.1:8083")
 	r.subscriber.SetSubscribe(r.Roomid)
 	r.poller.Add(r.subscriber, zmq.POLLIN)
 }
 
 func (r *Room) ConnectRouter(){
-	r.dealer, _ = zmq.NewSocket(zmq.SUB)
+	r.dealer, _ = zmq.NewSocket(zmq.DEALER)
 	r.dealer.Connect("tcp://127.0.0.1:8081")
+	fmt.Println("Connect tcp://127.0.0.1:8081")
 	r.poller.Add(r.dealer, zmq.POLLIN)
 }
 
 func (r *Room) SendAndRecvLoop(c chan struct{}){
 
+	fmt.Println("run SendAndRecvLoop")
 	r.poller = zmq.NewPoller()
 	r.ConnectPub()
 	r.ConnectRouter()
@@ -156,21 +174,15 @@ func (r *Room) SendAndRecvLoop(c chan struct{}){
         for _, socket := range sockets {
             switch s := socket.Socket; s {
             case r.insubscriber:
-                msg, err := s.RecvMessage(0)
-                if err != nil{
-                	r.ProcessInSub(msg)
-                }
+                msg, _ := s.RecvMessage(0)
+                r.ProcessInSub(msg)
             case r.subscriber:
-                msg, err := s.RecvMessage(0)
-                if err != nil{
-                	r.ProcessSub(msg)
-                }
+                msg, _ := s.RecvMessage(0)
+                r.ProcessSub(msg)
 
             case r.dealer:
-                msg, err := s.RecvMessage(0)
-                if err != nil{
-                	r.ProcessDealer(msg)
-                }
+                msg, _ := s.RecvMessage(0)
+                r.ProcessDealer(msg)
             
         	}
     	}
@@ -183,9 +195,24 @@ func (r *Room) ProcessInSub(msg []string){
 		return
 	}
 
-	fmt.Println("ProcessInSub recv:",msg[1])
-
-	r.dealer.SendMessage(msg[1])
+	fmt.Println("ProcessInSub recv:",msg)
+	/*
+	m := map[string]string{}
+	json.Unmarshal([]byte(msg[1],&m))
+	roomid := m["roomid"]
+	userid := m["userid"]
+	cmd := m["cmd"]
+	if cmd == "enter"{
+		
+	}	
+	*/
+	_,err := r.dealer.SendMessage(msg[1])
+	if err != nil{
+		fmt.Println("send to router error",err)
+		return
+	}
+	
+	fmt.Println("send to router ok")
 }
 
 func (r *Room) ProcessSub(msg []string){
